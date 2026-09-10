@@ -1,0 +1,28 @@
+
+> ecommerce@0.1.0 build
+> next build
+
+▲ Next.js 16.3.0 (Turbopack)
+✓ Running next.config.ts took 136ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.4s
+  Running TypeScript ...
+app/dashboard/Products/page.tsx(28,3): error TS2322: Type 'string' is not assignable to type 'never'.
+app/dashboard/Products/page.tsx(31,3): error TS2322: Type 'string' is not assignable to type 'never'.
+app/dashboard/Products/page.tsx(101,7): error TS2322: Type 'string' is not assignable to type 'never'.
+app/dashboard/Products/page.tsx(104,7): error TS2322: Type 'string' is not assignable to type 'never'.
+app/dashboard/Products/page.tsx(314,50): error TS2345: Argument of type '(current: Omit<Product, "id"> & { price: string; stock: string; }) => { price: string; name: string; slug?: string | undefined; description?: string | undefined; category_id?: number | undefined; category_name?: string | undefined; stock: never; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to parameter of type 'SetStateAction<Omit<Product, "id"> & { price: string; stock: string; }>'.
+  Type '(current: Omit<Product, "id"> & { price: string; stock: string; }) => { price: string; name: string; slug?: string | undefined; description?: string | undefined; category_id?: number | undefined; category_name?: string | undefined; stock: never; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type '(prevState: Omit<Product, "id"> & { price: string; stock: string; }) => Omit<Product, "id"> & { price: string; stock: string; }'.
+    Type '{ price: string; name: string; slug?: string | undefined; description?: string | undefined; category_id?: number | undefined; category_name?: string | undefined; stock: never; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type 'Omit<Product, "id"> & { price: string; stock: string; }'.
+      Type '{ price: string; name: string; slug?: string | undefined; description?: string | undefined; category_id?: number | undefined; category_name?: string | undefined; stock: never; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type 'Omit<Product, "id">'.
+        Types of property 'price' are incompatible.
+          Type 'string' is not assignable to type 'number'.
+app/dashboard/Products/page.tsx(326,50): error TS2345: Argument of type '(current: Omit<Product, "id"> & { price: string; stock: string; }) => { stock: string; name: string; slug?: string | undefined; description?: string | undefined; price: never; category_id?: number | undefined; category_name?: string | undefined; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to parameter of type 'SetStateAction<Omit<Product, "id"> & { price: string; stock: string; }>'.
+  Type '(current: Omit<Product, "id"> & { price: string; stock: string; }) => { stock: string; name: string; slug?: string | undefined; description?: string | undefined; price: never; category_id?: number | undefined; category_name?: string | undefined; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type '(prevState: Omit<Product, "id"> & { price: string; stock: string; }) => Omit<Product, "id"> & { price: string; stock: string; }'.
+    Type '{ stock: string; name: string; slug?: string | undefined; description?: string | undefined; price: never; category_id?: number | undefined; category_name?: string | undefined; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type 'Omit<Product, "id"> & { price: string; stock: string; }'.
+      Type '{ stock: string; name: string; slug?: string | undefined; description?: string | undefined; price: never; category_id?: number | undefined; category_name?: string | undefined; is_active?: boolean | undefined; image_url?: string | undefined; }' is not assignable to type 'Omit<Product, "id">'.
+        Types of property 'stock' are incompatible.
+          Type 'string' is not assignable to type 'number'.
+Failed to type check.
+

@@ -1,155 +1,127 @@
 "use client";
-import Image from "next/image";
-import RecentOrders from "@/app/components/RecentOrders"; 
-import customer from "../assets/dashboard/group.png"
-import order from "../assets/dashboard/order.png"
-import product from "../assets/dashboard/new-product.png"
-import revenue from "../assets/dashboard/shopping.png"
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 
-const data = [
-  { month: "Jan", sales: 12000, orders: 245, name: "Clothing", value: 400  },
-  { month: "Feb", sales: 15000, orders: 450, name: "Shoes", value: 300  },
-  { month: "Mar", sales: 13500, orders: 250, name: "Accessories", value: 200  },
-  { month: "Apr", sales: 18000, orders: 345, name: "Bags", value: 150 },
-  { month: "May", sales: 22000, orders: 445, name: "Hat", value: 10  },
-  { month: "Jun", sales: 25000, orders: 145, name: "earrings", value: 250  },
-];
+import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#FF0000", "#800080"];
-export default function Dashboard (){
-    return(
-        <div className=" bg-gray-50 w-4/5 fixed top-15 right-0 bottom-0 flex  flex-col justify-center items-center">
-            <div className="w-full h-30 flex justify-evenly items-center">
-                <div className=" w-60 h-20 shadow-xl bg-white flex justify-evenly items-center rounded-xl">
-                    <div>
-                        <Image className="w-10 h-10" src={product} alt="" />
-                    </div>
-                    <div>
-                        <span>Products</span>
-                    </div>                
-                </div>
-                <div className=" w-60 h-20 shadow-xl bg-white flex justify-evenly items-center rounded-xl">
-                    <div>
-                        <Image className="w-10 h-10" src={customer} alt="" />
-                    </div>
-                    <div>
-                        Customer
-                    </div>
-                </div>
-                <div className=" w-60 h-20 shadow-xl bg-white flex justify-evenly items-center rounded-xl">
-                    <div>
-                        <Image className="w-10 h-10" src={order} alt="" />
-                    </div>
-                    <div>
-                        Order
-                    </div>
-                </div>
-                <div className=" w-60 h-20 shadow-xl bg-white flex justify-evenly items-center rounded-xl">
-                    <div>
-                        <Image className="w-10 h-10" src={revenue} alt="" />
-                    </div>
-                    <div>
-                        Revenue
-                    </div>
-                </div>
-            </div>
+type DashboardSummary = {
+  users: number;
+  products: number;
+  orders: number;
+  revenue: number;
+};
 
-            <div className=" w-full h-70 flex justify-evenly items-center">
-                <div className="w-165 h-60 bg-white shadow-xl rounded-xl flex flex-col justify-between items-start ">
-                    <h2 className="mb-1 text-xl font-semibold w-full pl-5 py-2">Sales Overview</h2>
-                    {/* <div className="w-full  flex justify-center items-center"> */}
-                        <ResponsiveContainer className="px-5" width="100%" height="80%">
-                            <LineChart data={data}>
-                                <CartesianGrid strokeDasharray="3 3" />
+type OrderRow = {
+  id: number;
+  order_number?: string;
+  status?: string;
+  payment_status?: string;
+  total_amount?: number;
+  created_at?: string;
+};
 
-                                <XAxis dataKey="month" />
+export default function DashboardPage() {
+  const [summary, setSummary] = useState<DashboardSummary>({ users: 0, products: 0, orders: 0, revenue: 0 });
+  const [recentOrders, setRecentOrders] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-                                <YAxis />
+  useEffect(() => {
+    let mounted = true;
 
-                                <Tooltip />
+    const loadDashboard = async () => {
+      try {
+        const data = await apiFetch<{ summary: DashboardSummary; recentOrders: OrderRow[] }>("/admin/dashboard");
+        if (!mounted) return;
 
-                                <Line
-                                type="monotone"
-                                dataKey="sales"
-                                stroke="#2563eb"
-                                strokeWidth={3}
-                                dot={{ r: 4 }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    {/* </div> */}
+        setSummary(data.summary || { users: 0, products: 0, orders: 0, revenue: 0 });
+        setRecentOrders(data.recentOrders || []);
+      } catch (error) {
+        console.error("Failed to load dashboard data", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-                </div>
+    void loadDashboard();
 
-                <div className="w-100 h-60 bg-white shadow-xl rounded-xl">
-                    <h2 className="mb-1 text-xl font-semibold px-5 py-2">Orders</h2>
-                    <ResponsiveContainer className="px-5 pr-7" width="100%" height="80%">
-                    <BarChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" />
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-                        <XAxis dataKey="month" />
+  const stats = [
+    { label: "Total customers", value: summary.users, accent: "bg-sky-500" },
+    { label: "Products", value: summary.products, accent: "bg-violet-500" },
+    { label: "Orders", value: summary.orders, accent: "bg-emerald-500" },
+    { label: "Revenue", value: `$${Number(summary.revenue).toFixed(2)}`, accent: "bg-amber-500" },
+  ];
 
-                        <YAxis />
-
-                        <Tooltip />
-
-                        <Bar
-                        dataKey="orders"
-                        fill="#2563eb"
-                        radius={[6, 6, 0, 0]}
-                        />
-                    </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div className=" w-full h-70 flex justify-evenly items-center">
-                <div className="w-165 h-60 bg-white shadow-xl rounded-xl">
-                    <RecentOrders />
-                </div>
-
-                <div className="w-100 h-60 bg-white shadow-xl rounded-xl flex justify-center items-center flex-col">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                            data={data}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={60}
-                            label
-                            >
-                            {data.map((entry, index) => (
-                                <Cell
-                                key={`cell-${index}`}
-                                fill={COLORS[index % COLORS.length]}
-                                />
-                            ))}
-                            </Pie>
-
-                            <Tooltip />
-
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-600">Overview</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Admin dashboard</h1>
         </div>
-    )
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">Loading dashboard data...</div>
+      ) : (
+        <>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className={`mb-4 h-2.5 w-14 rounded-full ${stat.accent}`} />
+                <p className="text-sm text-slate-500">{stat.label}</p>
+                <h2 className="mt-3 text-3xl font-bold text-slate-900">{stat.value}</h2>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-6 py-5">
+              <h2 className="text-xl font-bold text-slate-900">Recent orders</h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="bg-slate-50 text-sm text-slate-600">
+                  <tr>
+                    <th className="px-6 py-4">Order</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Payment</th>
+                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-6 text-sm text-slate-500">No recent orders found.</td>
+                    </tr>
+                  ) : (
+                    recentOrders.map((order) => (
+                      <tr key={order.id} className="border-t border-slate-200">
+                        <td className="px-6 py-4 font-medium text-slate-900">{order.order_number || `#${order.id}`}</td>
+                        <td className="px-6 py-4">
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                            {order.status || "pending"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">{order.payment_status || "pending"}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-900">${Number(order.total_amount || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-slate-600">{order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

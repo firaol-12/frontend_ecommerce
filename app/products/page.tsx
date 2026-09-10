@@ -1,197 +1,98 @@
-import Image from "next/image"
+"use client";
 
-import img1 from "../assets/product/1.png"
-import img2 from "../assets/product/2.png"
-import img3 from "../assets/product/3.png"
-import img4 from "../assets/product/4.png"
-import img5 from "../assets/product/5.png"
-import img6 from "../assets/product/6.png"
-import img7 from "../assets/product/7.png"
-import img8 from "../assets/product/8.png"
-import cart from "../assets/shopping-cart.png"
-import Link from "next/link"
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
+import WishlistButton from "../components/wishlist-button";
+import { useAddToCart } from "../lib/useCart";
 
-export default function Products() {
-  const product = [
-    {
-      id: 1,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img1,
-    },
-    {
-      id: 2,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img2,
-    },
-    {
-      id: 3,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img3,
-    },
-    {
-      id: 4,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img4,
-    },
-    {
-      id: 5,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img5,
-    },
-    {
-      id: 6,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img6,
-    },
-    {
-      id: 7,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img7,
-    },
-    {
-      id: 8,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img8,
-    },
-    {
-      id: 9,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img1,
-    },
-    {
-      id: 10,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img2,
-    },
-    {
-      id: 11,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img3,
-    },
-    {
-      id: 12,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img4,
-    },
-    {
-      id: 13,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img5,
-    },
-    {
-      id: 14,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img6,
-    },
-    {
-      id: 15,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img7,
-    },
-    {
-      id: 16,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img8,
-    },
-    {
-      id: 17,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img1,
-    },
-    {
-      id: 18,
-      name: "Adidas Ultraboost",
-      price: 150,
-      rating: 3,
-      img: img2,
-    },
-    {
-      id: 19,
-      name: "Nike Revolution",
-      price: 90,
-      rating: 5,
-      img: img3,
-    },
-    {
-      id: 20,
-      name: "Nike Air Max",
-      price: 120,
-      rating: 4.5,
-      img: img4,
-    },
+type Product = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  stock: number;
+  category_name?: string;
+  main_image?: string;
+  image_url?: string;
+};
 
-  ]
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const addToCart = useAddToCart();
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const data = await apiFetch<{ products: Product[] }>("/products");
+        setProducts(data.products || []);
+      } catch (error) {
+        console.error("Failed to load products", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
+  if (loading) {
+    return <div className="mx-auto max-w-7xl px-6 py-20 text-slate-500">Loading products...</div>;
+  }
 
   return (
-    <div className="">
-
-      <div className="relative flex justify-center items-center flex-wrap  gap-12 mx-30 my-5">
-        {product.map((item) => (
-          <Link
-            href="/product"
-            key={item.id}
-            className="flex flex-col items-start gap-2 justify-center w-68 h-90 mb-10"
-          >
-            <div>
-              <Image
-                src={item.img}
-                alt={item.name}
-                className="object-cover"
-              />
-            </div>
-
-            <h3>{item.name}</h3>
-            <div className="flex justify-between w-full items-center"> 
-                <div className="flex flex-col">
-                    <p>${item.price}</p>
-                    <p>⭐⭐⭐⭐⭐ {item.rating}</p>
-
-                </div>
-                <button className="bg-amber-400 rounded-2xl w-10 h-10 flex justify-center items-center">
-                    <Image src={cart} className="w-6 h-6" alt="" />
-                </button>
-            </div>
-          </Link>
-        ))}
-        <div className="flex justify-center items-center w-full">
-            <button className="bg-amber-400 rounded-full flex justify-center items-center absolute bottom-2 text-white  px-6 py-2 ">View More</button>
+    <div className="mx-auto max-w-7xl px-6 py-16">
+      <div className="mb-10 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-600">Catalog</p>
+          <h1 className="mt-2 text-4xl font-black text-slate-900">All products</h1>
         </div>
+        <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+          Back home
+        </Link>
+      </div>
 
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((product) => {
+          const image = product.main_image || product.image_url || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80";
+
+          return (
+            <article key={product.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+              <div className="relative">
+                <Link href={`/product?slug=${encodeURIComponent(product.slug)}`}>
+                  <img
+                    src={image}
+                    alt={product.name}
+                    className="h-64 w-full object-cover"
+                  />
+                </Link>
+                <div className="absolute right-3 top-3">
+                  <WishlistButton productId={product.id} />
+                </div>
+              </div>
+              <div className="p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{product.category_name || "General"}</p>
+                <Link href={`/product?slug=${encodeURIComponent(product.slug)}`} className="mt-2 block text-xl font-semibold text-slate-900 hover:text-sky-700">
+                  {product.name}
+                </Link>
+                <p className="mt-2 text-sm text-slate-600">{product.description}</p>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <span className="text-2xl font-bold text-slate-900">${Number(product.price).toFixed(2)}</span>
+                  <button
+                    type="button"
+                    onClick={() => void addToCart(product.id)}
+                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+                  >
+                    Add to cart
+                  </button>
+                </div>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
-  )
+  );
 }

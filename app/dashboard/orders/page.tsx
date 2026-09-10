@@ -1,377 +1,201 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../../lib/api";
 
-const orders = [
-  {
-    id: "#1001",
-    customer: "John Doe",
-    email: "john@gmail.com",
-    products: "Nike Air Max",
-    total: 120,
-    payment: "Paid",
-    status: "Completed",
-    date: "Aug 19, 2026",
-  },
-  {
-    id: "#1002",
-    customer: "Ahmed Ali",
-    email: "ahmed@gmail.com",
-    products: "Black Hat",
-    total: 80,
-    payment: "Pending",
-    status: "Pending",
-    date: "Aug 18, 2026",
-  },
-  {
-    id: "#1003",
-    customer: "Sara Smith",
-    email: "sara@gmail.com",
-    products: "Leather Bag",
-    total: 250,
-    payment: "Paid",
-    status: "Completed",
-    date: "Aug 18, 2026",
-  },
-  {
-    id: "#1004",
-    customer: "Michael Brown",
-    email: "michael@gmail.com",
-    products: "Classic Watch",
-    total: 180,
-    payment: "Paid",
-    status: "Processing",
-    date: "Aug 17, 2026",
-  },
-  {
-    id: "#1005",
-    customer: "Hana Bekele",
-    email: "hana@gmail.com",
-    products: "Running Shoes",
-    total: 150,
-    payment: "Failed",
-    status: "Cancelled",
-    date: "Aug 16, 2026",
-  },
-  {
-    id: "#1006",
-    customer: "Daniel",
-    email: "daniel@gmail.com",
-    products: "T-Shirt",
-    total: 65,
-    payment: "Paid",
-    status: "Completed",
-    date: "Aug 15, 2026",
-  },
+type Order = {
+  id: number;
+  order_number?: string;
+  status?: string;
+  total_amount?: number;
+  created_at?: string;
+  user?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+};
+
+const orderStatuses = [
+  "pending",
+  "confirmed",
+  "shipped",
+  "delivered",
+  "cancelled",
 ];
 
-export default function Orders() {
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(search.toLowerCase()) ||
-      order.customer.toLowerCase().includes(search.toLowerCase()) ||
-      order.email.toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    let mounted = true;
 
-    const matchesStatus =
-      status === "All" || order.status === status;
+    const loadOrders = async () => {
+      try {
+        const data = await apiFetch<{ orders: Order[] }>("/orders");
+        if (!mounted) return;
+        setOrders(data.orders || []);
+      } catch (error) {
+        console.error("Failed to load orders", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-    return matchesSearch && matchesStatus;
-  });
+    void loadOrders();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const customer = `${order.user?.first_name || ""} ${order.user?.last_name || ""}`.trim();
+      const matchesSearch =
+        (order.order_number || "").toLowerCase().includes(search.toLowerCase()) ||
+        customer.toLowerCase().includes(search.toLowerCase()) ||
+        (order.user?.email || "").toLowerCase().includes(search.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (order.status || "pending").toLowerCase() === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, search, statusFilter]);
+
+  async function updateStatus(order: Order, newStatus: string) {
+    try {
+      await apiFetch(`/orders/${order.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id ? { ...item, status: newStatus } : item
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update order status", error);
+    }
+  }
 
   return (
-    <div className="ml-[20%] w-[80%] mt-15 min-h-screen bg-gray-50 p-6">
-
-      {/* Header */}
-      <div className="mb-6 flex w-full items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Orders
-          </h1>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Manage and track customer orders
-          </p>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-violet-600">Sales</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Orders</h1>
         </div>
-
-        <button className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition hover:bg-blue-700">
-          Export Orders
-        </button>
       </div>
 
-      {/* Statistics */}
-      <div className="mb-6 grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by order, customer or email..."
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-violet-500 md:max-w-md"
+          />
 
-        {/* Total */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Total Orders
-          </p>
-
-          <h2 className="mt-2 text-2xl font-bold text-gray-900">
-            1,248
-          </h2>
-        </div>
-
-        {/* Completed */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Completed
-          </p>
-
-          <h2 className="mt-2 text-2xl font-bold text-green-600">
-            980
-          </h2>
-        </div>
-
-        {/* Pending */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Pending
-          </p>
-
-          <h2 className="mt-2 text-2xl font-bold text-yellow-600">
-            180
-          </h2>
-        </div>
-
-        {/* Cancelled */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Cancelled
-          </p>
-
-          <h2 className="mt-2 text-2xl font-bold text-red-600">
-            88
-          </h2>
-        </div>
-
-      </div>
-
-      {/* Orders Container */}
-      <div className="w-full rounded-xl bg-white shadow-sm">
-
-        {/* Search + Filter */}
-        <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
-
-          {/* Search */}
-          <div className="relative w-full lg:w-96">
-
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              🔍
-            </span>
-
-            <input
-              type="text"
-              placeholder="Search order or customer..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-
-          </div>
-
-          {/* Status Filter */}
           <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-2.5 outline-none focus:border-blue-500"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-violet-500"
           >
-            <option value="All">All Orders</option>
-            <option value="Completed">Completed</option>
-            <option value="Processing">Processing</option>
-            <option value="Pending">Pending</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="all">All statuses</option>
+            {orderStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
-
         </div>
 
-        {/* Table */}
-        <div className="w-full overflow-x-auto">
-
-          <table className="w-full min-w-[1000px]">
-
-            <thead>
-              <tr className="border-b bg-gray-50 text-left text-sm text-gray-500">
-
-                <th className="px-6 py-4">
-                  Order
-                </th>
-
-                <th className="px-6 py-4">
-                  Customer
-                </th>
-
-                <th className="px-6 py-4">
-                  Product
-                </th>
-
-                <th className="px-6 py-4">
-                  Total
-                </th>
-
-                <th className="px-6 py-4">
-                  Payment
-                </th>
-
-                <th className="px-6 py-4">
-                  Status
-                </th>
-
-                <th className="px-6 py-4">
-                  Date
-                </th>
-
-                <th className="px-6 py-4 text-center">
-                  Action
-                </th>
-
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {filteredOrders.map((order) => (
-
-                <tr
-                  key={order.id}
-                  className="border-b last:border-0 hover:bg-gray-50"
-                >
-
-                  {/* Order ID */}
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    {order.id}
-                  </td>
-
-                  {/* Customer */}
-                  <td className="px-6 py-4">
-
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {order.customer}
-                      </p>
-
-                      <p className="text-xs text-gray-400">
-                        {order.email}
-                      </p>
-                    </div>
-
-                  </td>
-
-                  {/* Product */}
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {order.products}
-                  </td>
-
-                  {/* Total */}
-                  <td className="px-6 py-4 font-medium">
-                    ${order.total.toLocaleString()}
-                  </td>
-
-                  {/* Payment */}
-                  <td className="px-6 py-4">
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        order.payment === "Paid"
-                          ? "bg-green-100 text-green-700"
-                          : order.payment === "Pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {order.payment}
-                    </span>
-
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-6 py-4">
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        order.status === "Completed"
-                          ? "bg-green-100 text-green-700"
-                          : order.status === "Processing"
-                          ? "bg-blue-100 text-blue-700"
-                          : order.status === "Pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-
-                  </td>
-
-                  {/* Date */}
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {order.date}
-                  </td>
-
-                  {/* Action */}
-                  <td className="px-6 py-4 text-center">
-
-                    <button className="rounded-lg px-3 py-1 text-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900">
-                      ⋮
-                    </button>
-
-                  </td>
-
+        {loading ? (
+          <div className="p-6 text-slate-500">Loading orders...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-slate-50 text-sm text-slate-600">
+                <tr>
+                  <th className="px-6 py-4">Order</th>
+                  <th className="px-6 py-4">Customer</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Total</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Action</th>
                 </tr>
-
-              ))}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-        {/* Empty State */}
-        {filteredOrders.length === 0 && (
-          <div className="p-10 text-center text-gray-500">
-            No orders found.
+              </thead>
+              <tbody>
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-slate-500">No orders found.</td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <tr key={order.id} className="border-t border-slate-200">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-slate-900">{order.order_number || `#${order.id}`}</p>
+                          <p className="text-xs text-slate-500">Order #{order.id}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        <div>
+                          <p className="font-medium text-slate-800">
+                            {order.user?.first_name || "Customer"} {order.user?.last_name || ""}
+                          </p>
+                          <p className="text-xs text-slate-500">{order.user?.email || "—"}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="px-6 py-4 text-slate-900">
+                        ${Number(order.total_amount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                          order.status === "delivered"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : order.status === "cancelled"
+                              ? "bg-rose-100 text-rose-700"
+                              : order.status === "shipped"
+                                ? "bg-sky-100 text-sky-700"
+                                : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {order.status || "pending"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          value={order.status || "pending"}
+                          onChange={(event) => updateStatus(order, event.target.value)}
+                          className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-violet-500"
+                        >
+                          {orderStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="flex flex-col gap-4 border-t p-5 sm:flex-row sm:items-center sm:justify-between">
-
-          <p className="text-sm text-gray-500">
-            Showing {filteredOrders.length} of {orders.length} orders
-          </p>
-
-          <div className="flex gap-2">
-
-            <button className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-              Previous
-            </button>
-
-            <button className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white">
-              1
-            </button>
-
-            <button className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-              2
-            </button>
-
-            <button className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-              3
-            </button>
-
-            <button className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-              Next
-            </button>
-
-          </div>
-
-        </div>
-
       </div>
-
     </div>
   );
 }

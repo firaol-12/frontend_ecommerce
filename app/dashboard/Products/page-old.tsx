@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
-import { X } from "lucide-react";
+import Image from "next/image";
 
 type Category = {
   id: number;
@@ -34,13 +34,6 @@ type ProductFormData = {
   slug?: string;
 };
 
-type ProductImage = {
-  id?: number;
-  image_url: string;
-  alt_text?: string;
-  is_main?: boolean;
-};
-
 const emptyProduct: ProductFormData = {
   name: "",
   description: "",
@@ -52,62 +45,6 @@ const emptyProduct: ProductFormData = {
   image_url: "",
 };
 
-// Convert a File to a base64 data URL using universally supported APIs
-// (no FileReader dependency, works in every modern browser).
-async function fileToDataURL(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-
-  // Convert in chunks to avoid call-stack issues with large files.
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-
-  return `data:${file.type || "application/octet-stream"};base64,${btoa(binary)}`;
-}
-
-// Load an <img> element from a data URL.
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = src;
-  });
-}
-
-// Resize/compress a selected file into a JPEG data URL. Images are capped at
-// 1024px and quality 0.82 so the base64 payload stays small enough to keep the
-// whole request comfortably under the backend's JSON body limit.
-async function optimizeImage(file: File, maxWidth: number = 1024, quality: number = 0.82): Promise<string> {
-  const src = await fileToDataURL(file);
-  const img = await loadImage(src);
-
-  let { width, height } = img;
-  if (Math.max(width, height) > maxWidth) {
-    if (width >= height) {
-      height = Math.round((height * maxWidth) / width);
-      width = maxWidth;
-    } else {
-      width = Math.round((width * maxWidth) / height);
-      height = maxWidth;
-    }
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    throw new Error("Canvas is not supported in this browser");
-  }
-
-  ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL("image/jpeg", quality);
-}
-
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -117,37 +54,36 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(emptyProduct);
-  const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-
-  const refreshData = useCallback(async () => {
-    try {
-      const [productsResponse, categoriesResponse] = await Promise.all([
-        apiFetch<{ products: Product[] }>("/products"),
-        apiFetch<{ categories: Category[] }>("/categories"),
-      ]);
-
-      setProducts(productsResponse.products || []);
-      setCategories(categoriesResponse.categories || []);
-    } catch (error) {
-      console.error("Failed to load products or categories", error);
-    }
-  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    void refreshData().finally(() => {
-      if (mounted) {
-        setLoading(false);
+    const loadData = async () => {
+      try {
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          apiFetch<{ products: Product[] }>("/products"),
+          apiFetch<{ categories: Category[] }>("/categories"),
+        ]);
+
+        if (!mounted) return;
+
+        setProducts(productsResponse.products || []);
+        setCategories(categoriesResponse.categories || []);
+      } catch (error) {
+        console.error("Failed to load products or categories", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    });
+    };
+
+    void loadData();
 
     return () => {
       mounted = false;
     };
-  }, [refreshData]);
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -165,7 +101,6 @@ export default function ProductsPage() {
 
   function openCreateForm() {
     setFormData(emptyProduct);
-    setProductImages([]);
     setEditingProductId(null);
     setShowForm(true);
   }
@@ -182,43 +117,11 @@ export default function ProductsPage() {
       is_active: product.is_active ?? true,
       image_url: product.image_url || "",
     });
-    setProductImages([]);
     setEditingProductId(product.id);
     setShowForm(true);
   }
 
-  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>, isMainImage: boolean) {
-    const files = event.target.files;
-    if (!files) return;
-
-    setUploadingImage(true);
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const optimized = await optimizeImage(file);
-
-        if (isMainImage) {
-          setFormData((current) => ({ ...current, image_url: optimized }));
-        } else {
-          setProductImages((current) => [
-            ...current,
-            { image_url: optimized, alt_text: file.name }
-          ]);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to upload image:", error);
-      alert("Failed to optimize image. Please try again.");
-    } finally {
-      setUploadingImage(false);
-    }
-  }
-
-  function removeImage(index: number) {
-    setProductImages((current) => current.filter((_, i) => i !== index));
-  }
-
-  async function submitProduct(event: React.FormEvent<HTMLFormElement>) {
+  async function submitProduct(event: React.FormEvent) {
     event.preventDefault();
 
     const payload = {
@@ -229,45 +132,26 @@ export default function ProductsPage() {
     };
 
     try {
-      let productId = editingProductId;
-
       if (editingProductId) {
-        await apiFetch(`/products/${editingProductId}`, {
+        const response = await apiFetch<{ product: Product }>(`/products/${editingProductId}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
+
+        setProducts((current) =>
+          current.map((product) => (product.id === editingProductId ? response.product : product))
+        );
       } else {
         const response = await apiFetch<{ product: Product }>("/products", {
           method: "POST",
           body: JSON.stringify(payload),
         });
 
-        productId = response.product.id;
+        setProducts((current) => [response.product, ...current]);
       }
-
-      // Upload additional images if any
-      if (productId && productImages.length > 0) {
-        for (const img of productImages) {
-          try {
-            await apiFetch(`/products/${productId}/images`, {
-              method: "POST",
-              body: JSON.stringify({
-                image_url: img.image_url,
-                alt_text: img.alt_text || "",
-                is_main_image: false,
-              }),
-            });
-          } catch (error) {
-            console.error("Failed to upload product image:", error);
-          }
-        }
-      }
-
-      await refreshData();
 
       setShowForm(false);
       setFormData(emptyProduct);
-      setProductImages([]);
       setEditingProductId(null);
     } catch (error) {
       console.error("Failed to save product", error);
@@ -276,13 +160,13 @@ export default function ProductsPage() {
   }
 
   async function deleteProduct(productId: number) {
+    if (!window.confirm("Delete this product?")) return;
+
     try {
       await apiFetch(`/products/${productId}`, { method: "DELETE" });
-      setConfirmDeleteId(null);
-      await refreshData();
+      setProducts((current) => current.filter((product) => product.id !== productId));
     } catch (error) {
       console.error("Failed to delete product", error);
-      alert("Failed to delete product. Please try again.");
     }
   }
 
@@ -353,7 +237,7 @@ export default function ProductsPage() {
                         <div className="flex items-center gap-3">
                           <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
                             {product.image_url ? (
-                              <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                              <Image src={product.image_url} alt={product.name} width={44} height={44} className="h-full w-full object-cover" />
                             ) : (
                               product.name.slice(0, 2).toUpperCase()
                             )}
@@ -381,32 +265,13 @@ export default function ProductsPage() {
                           >
                             Edit
                           </button>
-                          {confirmDeleteId === product.id ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void deleteProduct(product.id)}
-                                className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-500"
-                              >
-                                Yes, delete
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDeleteId(product.id)}
-                              className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-500"
-                            >
-                              Delete
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => deleteProduct(product.id)}
+                            className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-500"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -419,7 +284,7 @@ export default function ProductsPage() {
       </div>
 
       {showForm && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-900">
               {editingProductId ? "Edit product" : "Add new product"}
@@ -430,7 +295,6 @@ export default function ProductsPage() {
           </div>
 
           <form className="grid gap-5 md:grid-cols-2" onSubmit={submitProduct}>
-            {/* Product Details */}
             <label className="space-y-2 md:col-span-2">
               <span className="text-sm font-medium text-slate-700">Product name</span>
               <input
@@ -498,69 +362,16 @@ export default function ProductsPage() {
               )}
             </label>
 
-            {/* Main Image Upload */}
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Main Product Image</span>
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => handleImageUpload(event, true)}
-                  disabled={uploadingImage}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 disabled:opacity-50"
-                />
-                {formData.image_url && (
-                  <div className="relative h-40 w-full overflow-hidden rounded-xl bg-slate-100">
-                    <img
-                      src={formData.image_url}
-                      alt="Main product"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                )}
-              </div>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Image URL</span>
+              <input
+                value={formData.image_url}
+                onChange={(event) => setFormData((current) => ({ ...current, image_url: event.target.value }))}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500"
+              />
             </label>
 
-            {/* Additional Images */}
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Featured Images (Additional)</span>
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(event) => handleImageUpload(event, false)}
-                  disabled={uploadingImage}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 disabled:opacity-50"
-                />
-
-                {/* Image Preview Grid */}
-                {productImages.length > 0 && (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                    {productImages.map((img, index) => (
-                      <div key={index} className="relative group">
-                        <div className="relative h-24 w-full overflow-hidden rounded-lg bg-slate-100">
-                          <img
-                            src={img.image_url}
-                            alt={`Featured ${index + 1}`}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 rounded-full bg-red-600 p-1 text-white opacity-0 transition group-hover:opacity-100"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </label>
-
-            <label className="flex items-center gap-3 pt-2">
+            <label className="flex items-center gap-3 pt-8">
               <input
                 type="checkbox"
                 checked={Boolean(formData.is_active)}
@@ -580,8 +391,7 @@ export default function ProductsPage() {
               </button>
               <button
                 type="submit"
-                disabled={uploadingImage}
-                className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-500"
               >
                 {editingProductId ? "Save changes" : "Create product"}
               </button>

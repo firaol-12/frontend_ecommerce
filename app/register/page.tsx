@@ -1,35 +1,139 @@
-import Image from "next/image"
-import Link from "next/link"
-import img from "../assets/register.svg"
-import icon from "../assets/search (1).png"
+"use client";
 
-export default function Register() {
-    return(
-        <div className="flex justify-center items-center w-full h-screen">
-            <div className=" bg-gray-200 flex justify-around items-center rounded-2xl w-200 h-110 shadow-2xl">
-                <div className="w-90 flex justify-center items-center">
-                    <Image src={img} alt="" className="w-80 h-80" /> 
-                </div>
-                <div className="w-90 flex justify-center items-center">
-                    <form action="" className="flex flex-col gap-4">
-                        <button className="w-70 px-5 py-2 text-black border border-gray-400 rounded-2xl flex items-center justify-center gap-4">
-                            <Image src={icon} alt="Google" className="w-5 h-5" />
-                            <span>Continue with Google</span>
-                        </button>
-                        <p className=" text-center ">Or</p>
-                        <input placeholder="Full Name" className="w-70 px-5 py-2 border border-gray-400 rounded-2xl" type="text" />
-                        <input placeholder="Email" className="w-70 px-5 py-2 border border-gray-400 rounded-2xl" type="email" />
-                        <input placeholder="Password" className="w-70 px-5 py-2 border border-gray-400 rounded-2xl" type="password" />
-                        <button className="w-70 px-5 py-2 bg-blue-600 text-white rounded-2xl">Submit</button>
-                        <div className="flex justify-center items-center gap-1">
-                            <span>Already have an account?</span>
-                            <Link href="./login" className="text-blue-600 text-center">
-                                Login
-                            </Link>
-                        </div>
-                    </form>
-                </div>
-            </div>
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { apiFetch } from "../lib/api";
+import { useAuth } from "../components/auth-provider";
+import type { AuthUser } from "../lib/auth";
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const { setUser } = useAuth();
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    password: "",
+    phone: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiFetch<{
+        token: string;
+        user: AuthUser;
+      }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+
+      localStorage.setItem("token", result.token);
+      setUser(result.user);
+      window.dispatchEvent(new Event("auth-change"));
+      setSuccess("Account created successfully. Redirecting...");
+      setTimeout(() => router.push("/"), 800);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto flex max-w-5xl items-center justify-center px-6 py-20">
+      <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl md:grid-cols-2">
+        <div className="bg-slate-900 p-8 text-white md:p-12">
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-300">Start shopping</p>
+          <h1 className="mt-4 text-4xl font-black">Create your account</h1>
+          <p className="mt-4 text-slate-300">
+            Join now to save products, manage orders, and get special discount offers.
+          </p>
         </div>
-    )
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-8 md:p-12">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">First name</label>
+              <input
+                type="text"
+                value={form.first_name}
+                onChange={(event) => setForm({ ...form, first_name: event.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Last name</label>
+              <input
+                type="text"
+                value={form.last_name}
+                onChange={(event) => setForm({ ...form, last_name: event.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Phone</label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Password</label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500"
+              required
+            />
+          </div>
+
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? "Creating account..." : "Create account"}
+          </button>
+
+          <p className="text-center text-sm text-slate-600">
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-sky-600 hover:text-sky-700">
+              Login here
+            </Link>
+          </p>
+        </form>
+      </div>
+    </div>
+  );
 }
