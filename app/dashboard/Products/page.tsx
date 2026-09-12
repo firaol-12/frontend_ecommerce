@@ -39,6 +39,7 @@ type ProductImage = {
   image_url: string;
   alt_text?: string;
   is_main?: boolean;
+  is_main_image?: boolean;
 };
 
 const emptyProduct: ProductFormData = {
@@ -119,6 +120,7 @@ export default function ProductsPage() {
   const [formData, setFormData] = useState<ProductFormData>(emptyProduct);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const refreshData = useCallback(async () => {
@@ -170,21 +172,36 @@ export default function ProductsPage() {
     setShowForm(true);
   }
 
-  function openEditForm(product: Product) {
+  async function openEditForm(product: Product) {
     setFormData({
       name: product.name,
       slug: product.slug,
       description: product.description || "",
-      price: String(product.price || ""),
+      price: String(product.price ?? ""),
       category_id: product.category_id,
       category_name: product.category_name || "",
-      stock: String(product.stock || ""),
+      stock: String(product.stock ?? 0),
       is_active: product.is_active ?? true,
       image_url: product.image_url || "",
     });
     setProductImages([]);
     setEditingProductId(product.id);
     setShowForm(true);
+
+    // Load full detail so any existing featured images are shown and preserved
+    // when the product is saved again (images already in the DB have an id and
+    // are skipped during the upload step to avoid duplicates).
+    try {
+      const detail = await apiFetch<{
+        product: Product & { images?: ProductImage[] };
+      }>(`/products/${product.id}`);
+      const featured = (detail.product.images || []).filter((img) => !img.is_main_image);
+      if (featured.length > 0) {
+        setProductImages(featured);
+      }
+    } catch (error) {
+      console.error("Failed to load product images", error);
+    }
   }
 
   async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>, isMainImage: boolean) {
@@ -229,6 +246,7 @@ export default function ProductsPage() {
     };
 
     try {
+      setSaving(true);
       let productId = editingProductId;
 
       if (editingProductId) {
@@ -245,9 +263,11 @@ export default function ProductsPage() {
         productId = response.product.id;
       }
 
-      // Upload additional images if any
-      if (productId && productImages.length > 0) {
-        for (const img of productImages) {
+      // Upload only newly added featured images. Existing images already in the
+      // database carry an `id` and are left untouched to avoid duplicates.
+      const newImages = productId ? productImages.filter((img) => !img.id) : productImages;
+      if (productId && newImages.length > 0) {
+        for (const img of newImages) {
           try {
             await apiFetch(`/products/${productId}/images`, {
               method: "POST",
@@ -272,6 +292,8 @@ export default function ProductsPage() {
     } catch (error) {
       console.error("Failed to save product", error);
       alert(`Error: ${error instanceof Error ? error.message : "Failed to save product"}`);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -580,10 +602,10 @@ export default function ProductsPage() {
               </button>
               <button
                 type="submit"
-                disabled={uploadingImage}
+                disabled={uploadingImage || saving}
                 className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
               >
-                {editingProductId ? "Save changes" : "Create product"}
+                {saving ? "Saving..." : editingProductId ? "Save changes" : "Create product"}
               </button>
             </div>
           </form>

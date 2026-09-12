@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { useCart } from "../components/cart-provider";
@@ -19,6 +20,8 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const [notice, setNotice] = useState(searchParams.get("msg") || "");
   const { refreshCart } = useCart();
 
   useEffect(() => {
@@ -106,6 +109,12 @@ export default function CartPage() {
           Continue shopping
         </Link>
       </div>
+
+      {notice ? (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {notice}
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
@@ -214,12 +223,12 @@ export default function CartPage() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              className="mt-6 w-full rounded-full bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-700"
+            <Link
+              href="/checkout"
+              className="mt-6 block w-full rounded-full bg-slate-900 px-6 py-3 text-center font-semibold text-white transition hover:bg-slate-700"
             >
               Proceed to checkout
-            </button>
+            </Link>
           </div>
         </div>
       )}

@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import WishlistButton from "../components/wishlist-button";
 import { useAddToCart } from "../lib/useCart";
+
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+};
 
 type Product = {
   id: number;
@@ -18,16 +26,28 @@ type Product = {
   image_url?: string;
 };
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const addToCart = useAddToCart();
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get("categoryId");
 
   useEffect(() => {
     async function loadProducts() {
+      setLoading(true);
       try {
-        const data = await apiFetch<{ products: Product[] }>("/products");
+        const query =
+          categoryId
+            ? `?categoryId=${encodeURIComponent(categoryId)}&limit=100`
+            : "?limit=100";
+        const [data, categoriesData] = await Promise.all([
+          apiFetch<{ products: Product[] }>(`/products${query}`),
+          apiFetch<{ categories: Category[] }>("/categories"),
+        ]);
         setProducts(data.products || []);
+        setCategories(categoriesData.categories || []);
       } catch (error) {
         console.error("Failed to load products", error);
       } finally {
@@ -36,7 +56,11 @@ export default function ProductsPage() {
     }
 
     loadProducts();
-  }, []);
+  }, [categoryId]);
+
+  const activeCategory = categories.find(
+    (category) => String(category.id) === categoryId
+  );
 
   if (loading) {
     return <div className="mx-auto max-w-7xl px-6 py-20 text-slate-500">Loading products...</div>;
@@ -47,11 +71,20 @@ export default function ProductsPage() {
       <div className="mb-10 flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-600">Catalog</p>
-          <h1 className="mt-2 text-4xl font-black text-slate-900">All products</h1>
+          <h1 className="mt-2 text-4xl font-black text-slate-900">
+            {activeCategory?.name || "All products"}
+          </h1>
         </div>
-        <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
-          Back home
-        </Link>
+        <div className="flex items-center gap-3">
+          {activeCategory ? (
+            <Link href="/products" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+              View all
+            </Link>
+          ) : null}
+          <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+            Back home
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -94,5 +127,19 @@ export default function ProductsPage() {
         })}
       </div>
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-6 py-20 text-slate-500">
+          Loading products...
+        </div>
+      }
+    >
+      <ProductsPageContent />
+    </Suspense>
   );
 }

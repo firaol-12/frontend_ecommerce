@@ -7,6 +7,14 @@ import { apiFetch } from "./lib/api";
 import HeroSlider from "./components/hero-slider";
 import WishlistButton from "./components/wishlist-button";
 import { useAddToCart } from "./lib/useCart";
+import accessoryIcon from "./assets/category/accessory.png";
+import bagIcon from "./assets/category/bag.png";
+import clothesIcon from "./assets/category/clothes.png";
+import electronicsIcon from "./assets/category/electronics.png";
+import hatIcon from "./assets/category/hat.png";
+import jewelryIcon from "./assets/category/jawelry.png";
+import kidsIcon from "./assets/category/kid.png";
+import shoeIcon from "./assets/category/shoe.png";
 
 type Category = {
   id: number;
@@ -27,6 +35,20 @@ type Product = {
   main_image?: string;
   image_url?: string;
 };
+
+// Local icon for each category, matched by category slug.
+type CategoryIcon = typeof clothesIcon;
+const categoryIcons: Record<string, CategoryIcon> = {
+  clothes: clothesIcon,
+  electronics: electronicsIcon,
+  shoes: shoeIcon,
+  jewelry: jewelryIcon,
+  hats: hatIcon,
+  bags: bagIcon,
+  kids: kidsIcon,
+  accessories: accessoryIcon,
+};
+const fallbackCategoryIcon: CategoryIcon = accessoryIcon;
 
 export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -69,21 +91,24 @@ export default function HomePage() {
         {loading ? (
           <div className="text-slate-500">Loading categories...</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="my-5 flex w-full flex-wrap items-center justify-center gap-4 md:gap-8">
             {categories.map((category) => (
-              <div key={category.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+              <Link
+                key={category.id}
+                href={`/products?categoryId=${category.id}`}
+                className="flex h-20 w-45 items-center justify-around gap-2 rounded-2xl bg-white px-3 shadow-xl transition hover:shadow-2xl"
+              >
                 <Image
-                  src={category.image || "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80"}
+                  src={categoryIcons[category.slug] || fallbackCategoryIcon}
                   alt={category.name}
-                  width={900}
-                  height={640}
-                  className="h-52 w-full object-cover"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-cover"
                 />
-                <div className="p-5">
-                  <h3 className="text-xl font-semibold">{category.name}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{category.description || "Fresh picks for your daily needs."}</p>
-                </div>
-              </div>
+                <p className="text-sm font-semibold text-slate-700">
+                  {category.name}
+                </p>
+              </Link>
             ))}
           </div>
         )}
