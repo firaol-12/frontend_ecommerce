@@ -202,24 +202,24 @@ export default function CheckoutPage() {
     setPaying(true);
     setPayError("");
 
-    const basePayload = JSON.stringify({
+    let createdTxRef = "";
+    const payload = {
       shipping_address_id: shippingId,
       billing_address_id: billingSame ? shippingId : billingId,
       coupon_code: appliedCoupon?.coupon?.code || null,
       notes: notes || null,
-    });
-
-    let createdTxRef = "";
+    };
 
     try {
       // 1) Create the order + pending payment first, so we have a tx_ref.
+      //    NOTE: this clears the cart — the order now owns the items.
       const orderData = await apiFetch<{
         tx_ref: string;
         amount: number;
         customer: { first_name: string; last_name: string; email: string; phone_number: string };
       }>("/payments/chapa/order", {
         method: "POST",
-        body: basePayload,
+        body: JSON.stringify(payload),
       });
       createdTxRef = orderData.tx_ref;
 
@@ -247,19 +247,16 @@ export default function CheckoutPage() {
           // Chapa's modal takes over from here.
           return;
         }
-        // Chapa.js could not load — put the order back and fall back to redirect.
-        try {
-          await apiFetch("/payments/chapa/cancel", {
-            method: "POST",
-            body: JSON.stringify({ tx_ref: orderData.tx_ref }),
-          });
-        } catch (_) { /* best effort */ }
+        // Chapa.js could not load — fall through to the hosted redirect below.
+        // Do NOT cancel the order here: it is still pending and will be paid
+        // via Chapa's hosted page using the same tx_ref.
       }
 
-      // 3) Fallback: hosted Chapa page redirect.
+      // 3) Fallback: hosted Chapa page redirect. Reuse the SAME pending
+      //    payment (tx_ref) created in step 1 instead of re-creating it.
       const init = await apiFetch<{ checkout_url: string }>("/payments/chapa/initialize", {
         method: "POST",
-        body: basePayload,
+        body: JSON.stringify({ ...payload, tx_ref: createdTxRef }),
       });
       if (init.checkout_url) {
         window.location.href = init.checkout_url;
@@ -268,15 +265,16 @@ export default function CheckoutPage() {
       throw new Error("Chapa did not return a payment URL.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not start payment. Please try again.";
+      if (createdTxRef) {
+        // The payment never started — put the order/stock back.
+        try {
+          await apiFetch("/payments/chapa/cancel", {
+            method: "POST",
+            body: JSON.stringify({ tx_ref: createdTxRef }),
+          });
+        } catch (_) { /* best effort */ }
+      }
       if (msg.toLowerCase().includes("cart is empty")) {
-        if (createdTxRef) {
-          try {
-            await apiFetch("/payments/chapa/cancel", {
-              method: "POST",
-              body: JSON.stringify({ tx_ref: createdTxRef }),
-            });
-          } catch (_) { /* best effort */ }
-        }
         router.push(`/cart?msg=Your+cart+is+empty.+Please+add+items+and+try+again.`);
         return;
       }
