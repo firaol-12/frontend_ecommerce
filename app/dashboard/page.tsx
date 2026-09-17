@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import ErrorState from "../components/error-state";
 
 type DashboardSummary = {
   users: number;
@@ -23,6 +24,8 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>({ users: 0, products: 0, orders: 0, revenue: 0 });
   const [recentOrders, setRecentOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -34,8 +37,12 @@ export default function DashboardPage() {
 
         setSummary(data.summary || { users: 0, products: 0, orders: 0, revenue: 0 });
         setRecentOrders(data.recentOrders || []);
+        setLoadError(null);
       } catch (error) {
         console.error("Failed to load dashboard data", error);
+        if (mounted) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load dashboard data");
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -48,7 +55,27 @@ export default function DashboardPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [retryToken]);
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-600">Overview</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Admin dashboard</h1>
+        </div>
+        <ErrorState
+          code="Something went wrong"
+          title="We couldn't load the dashboard"
+          description="The dashboard data failed to load. Please check your connection and try again."
+          details={loadError}
+          primaryAction={{ label: "Try again", onClick: () => setRetryToken((token) => token + 1) }}
+          secondaryAction={{ label: "Back to home", href: "/" }}
+          variant="danger"
+        />
+      </div>
+    );
+  }
 
   const stats = [
     { label: "Total customers", value: summary.users, accent: "bg-sky-500" },

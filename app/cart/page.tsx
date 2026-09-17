@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { useCart } from "../components/cart-provider";
+import ErrorState from "../components/error-state";
 
 type CartItem = {
   id: number;
@@ -16,7 +18,7 @@ type CartItem = {
   image_url?: string;
 };
 
-export default function CartPage() {
+function CartContent() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,16 +87,14 @@ export default function CartPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-7xl px-6 py-20">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
-          {error}
-        </div>
-        <div className="mt-6">
-          <Link href="/login" className="font-semibold text-sky-600 hover:text-sky-700">
-            Login to view your cart
-          </Link>
-        </div>
-      </div>
+      <ErrorState
+        code="Couldn't load cart"
+        title="We couldn't load your cart"
+        description={error}
+        primaryAction={{ label: "Login to view your cart", href: "/login" }}
+        secondaryAction={{ label: "Continue shopping", href: "/products" }}
+        variant="danger"
+      />
     );
   }
 
@@ -233,5 +233,18 @@ export default function CartPage() {
         </div>
       )}
     </div>
+  );
+}
+export default function CartPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-6 py-20 text-slate-500">
+          Loading cart...
+        </div>
+      }
+    >
+      <CartContent />
+    </Suspense>
   );
 }

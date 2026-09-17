@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../lib/api";
@@ -11,7 +12,7 @@ type VerifyResult = {
   verified?: boolean;
 };
 
-export default function CheckoutStatusPage() {
+function CheckoutStatusContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const txRef = searchParams.get("tx_ref") || searchParams.get("trxref") || searchParams.get("txref") || "";
@@ -131,5 +132,18 @@ export default function CheckoutStatusPage() {
         </div>
       )}
     </div>
+  );
+}
+export default function CheckoutStatusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-3xl px-6 py-20 text-slate-500">
+          Loading...
+        </div>
+      }
+    >
+      <CheckoutStatusContent />
+    </Suspense>
   );
 }

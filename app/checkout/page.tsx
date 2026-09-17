@@ -7,26 +7,9 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../components/auth-provider";
 import { useCart } from "../components/cart-provider";
 
-const CHAPA_PUBLIC_KEY = process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY || "";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-
-// Dynamically load Chapa.js (the embedded checkout modal library). Returns true
-// if the global `Chapa` is available afterwards.
-function loadChapaScript(timeoutMs = 6000) {
-  return new Promise((resolve) => {
-    if (typeof window !== "undefined" && window.Chapa) {
-      resolve(true);
-      return;
-    }
-    const src = document.createElement("script");
-    src.src = "https://js.chapa.co/v1/plugin.js";
-    src.async = true;
-    src.onload = () => resolve(Boolean(window.Chapa));
-    src.onerror = () => resolve(Boolean(window.Chapa));
-    document.head.appendChild(src);
-    setTimeout(() => resolve(Boolean(window.Chapa)), timeoutMs);
-  });
-}
+// Chapa payment uses the hosted-checkout redirect flow: the backend creates
+// the order + pending payment, then asks Chapa for a secure checkout URL and
+// the browser is redirected to it (see payWithChapa below).
 
 type CartItem = {
   id: number;
@@ -72,7 +55,7 @@ const emptyAddress = {
 export default function CheckoutPage() {
   const router = useRouter();
   const { loggedIn } = useAuth();
-  const { refreshCart } = useCart();
+  const { refreshCart, setCartCount } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -213,6 +196,8 @@ export default function CheckoutPage() {
     try {
       // 1) Create the order + pending payment first, so we have a tx_ref.
       //    NOTE: this clears the cart — the order now owns the items.
+      //    Reflect that immediately so the navbar badge doesn't lag behind.
+      setCartCount(0);
       const orderData = await apiFetch<{
         tx_ref: string;
         amount: number;
@@ -223,50 +208,31 @@ export default function CheckoutPage() {
       });
       createdTxRef = orderData.tx_ref;
 
-      // 2) Preferred: open the embedded Chapa.js payment modal (fields to enter
-      //    your account / card right on the site).
-      if (CHAPA_PUBLIC_KEY) {
-        const loaded = await loadChapaScript();
-        if (loaded && typeof window !== "undefined" && window.Chapa) {
-          window.Chapa.setPublicKey(CHAPA_PUBLIC_KEY);
-          window.Chapa.initialize({
-            amount: String(orderData.amount),
-            currency: "ETB",
-            email: orderData.customer.email,
-            first_name: orderData.customer.first_name,
-            last_name: orderData.customer.last_name,
-            phone_number: orderData.customer.phone_number,
-            tx_ref: orderData.tx_ref,
-            return_url: `${window.location.origin}/checkout/status`,
-            callback_url: `${API_BASE_URL}/payments/chapa/webhook`,
-            customization: {
-              title: "MyShop",
-              description: `Order ${orderData.tx_ref}`,
-            },
-          });
-          // Chapa's modal takes over from here.
-          return;
+      // 2) Start Chapa's hosted checkout and redirect the browser to it.
+      //    This is Chapa's recommended standard integration. (The old
+      //    plugin.js embedded modal was retired by Chapa — the script now
+      //    returns HTTP 403 — so the hosted page is the reliable path.)
+      const init = await apiFetch<{ checkout_url?: string }>(
+        "/payments/chapa/initialize",
+        {
+          method: "POST",
+          body: JSON.stringify({ ...payload, tx_ref: createdTxRef }),
         }
-        // Chapa.js could not load — fall through to the hosted redirect below.
-        // Do NOT cancel the order here: it is still pending and will be paid
-        // via Chapa's hosted page using the same tx_ref.
-      }
-
-      // 3) Fallback: hosted Chapa page redirect. Reuse the SAME pending
-      //    payment (tx_ref) created in step 1 instead of re-creating it.
-      const init = await apiFetch<{ checkout_url: string }>("/payments/chapa/initialize", {
-        method: "POST",
-        body: JSON.stringify({ ...payload, tx_ref: createdTxRef }),
-      });
+      );
       if (init.checkout_url) {
+        // Redirect to Chapa's secure payment page. The page navigates away,
+        // so there is no need to reset the `paying` state.
         window.location.href = init.checkout_url;
         return;
       }
-      throw new Error("Chapa did not return a payment URL.");
+      throw new Error("Chapa did not return a payment URL. Please try again.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not start payment. Please try again.";
       if (createdTxRef) {
-        // The payment never started — put the order/stock back.
+        // The payment never started — put the order/stock back. The backend
+        // also restores the cart rows, so re-sync the badge from the server
+        // (this is the source of truth; a stale badge is what causes the
+        // "empty cart but badge shows 1" confusion).
         try {
           await apiFetch("/payments/chapa/cancel", {
             method: "POST",
@@ -274,6 +240,11 @@ export default function CheckoutPage() {
           });
         } catch (_) { /* best effort */ }
       }
+      // Re-sync the badge from the server either way — the backend is the
+      // source of truth. After a failed start the cancel call above has
+      // restored the cart rows; if the order itself failed (e.g. the cart
+      // was really empty) this clears a stale badge instead.
+      await refreshCart();
       if (msg.toLowerCase().includes("cart is empty")) {
         router.push(`/cart?msg=Your+cart+is+empty.+Please+add+items+and+try+again.`);
         return;

@@ -14,12 +14,14 @@ import { useAuth } from "./auth-provider";
 
 type CartContextValue = {
   cartCount: number;
+  setCartCount: (count: number) => void;
   addToCart: (productId: number, quantity?: number) => Promise<boolean>;
   refreshCart: () => Promise<void>;
 };
 
 const CartContext = createContext<CartContextValue>({
   cartCount: 0,
+  setCartCount: () => {},
   addToCart: async () => false,
   refreshCart: async () => {},
 });
@@ -83,7 +85,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<CartContextValue>(
-    () => ({ cartCount, addToCart, refreshCart }),
+    () => ({ cartCount, setCartCount, addToCart, refreshCart }),
     [cartCount, addToCart, refreshCart]
   );
 

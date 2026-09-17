@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
+import ErrorState from "../../components/error-state";
 import { X } from "lucide-react";
 
 type Category = {
@@ -122,20 +123,35 @@ export default function ProductsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [showAllProducts, setShowAllProducts] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
     try {
       const [productsResponse, categoriesResponse] = await Promise.all([
-        apiFetch<{ products: Product[] }>("/products"),
+        // includeInactive: deactivated (soft-deleted) products stay visible
+        // here so admins can see their status and reactivate them if needed.
+        // limit=1000 overrides the backend's default limit of 12 so the full
+        // catalog loads (pagination is handled client-side below).
+        apiFetch<{ products: Product[] }>("/products?includeInactive=true&limit=1000"),
         apiFetch<{ categories: Category[] }>("/categories"),
       ]);
 
       setProducts(productsResponse.products || []);
       setCategories(categoriesResponse.categories || []);
+      setLoadError(null);
     } catch (error) {
       console.error("Failed to load products or categories", error);
+      setLoadError(error instanceof Error ? error.message : "Failed to load products or categories");
     }
   }, []);
+
+  async function retryLoad() {
+    setLoadError(null);
+    setLoading(true);
+    await refreshData();
+    setLoading(false);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -164,6 +180,13 @@ export default function ProductsPage() {
       return matchesSearch && matchesCategory;
     });
   }, [products, search, selectedCategory]);
+
+  // Show only the first 3 products by default; the "Show all products" button
+  // reveals the rest.
+  const productsPerPage = 3;
+  const dashboardVisibleProducts = showAllProducts
+    ? filteredProducts
+    : filteredProducts.slice(0, productsPerPage);
 
   function openCreateForm() {
     setFormData(emptyProduct);
@@ -299,12 +322,29 @@ export default function ProductsPage() {
 
   async function deleteProduct(productId: number) {
     try {
-      await apiFetch(`/products/${productId}`, { method: "DELETE" });
+      const response = await apiFetch<{
+        message?: string;
+        deactivated?: boolean;
+      }>(`/products/${productId}`, { method: "DELETE" });
       setConfirmDeleteId(null);
+      // Products that belong to past orders can't be hard-deleted; the backend
+      // deactivates them instead and tells us so. Let the admin know.
+      if (response?.deactivated) {
+        window.alert(
+          response.message ||
+            "This product has order history, so it was deactivated instead of deleted."
+        );
+      }
       await refreshData();
     } catch (error) {
       console.error("Failed to delete product", error);
-      alert("Failed to delete product. Please try again.");
+      // Surface the actual reason from the server (e.g. auth problems)
+      // instead of a generic message.
+      alert(
+        error instanceof Error
+          ? `Failed to delete product: ${error.message}`
+          : "Failed to delete product. Please try again."
+      );
     }
   }
 
@@ -325,6 +365,17 @@ export default function ProductsPage() {
         </button>
       </div>
 
+      {loadError ? (
+        <ErrorState
+          code="Something went wrong"
+          title="We couldn't load the products"
+          description="The product list failed to load. Please check your connection and try again."
+          details={loadError}
+          primaryAction={{ label: "Try again", onClick: () => void retryLoad() }}
+          secondaryAction={{ label: "Back to home", href: "/" }}
+          variant="danger"
+        />
+      ) : (
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
           <input
@@ -355,6 +406,7 @@ export default function ProductsPage() {
             <table className="min-w-full text-left">
               <thead className="bg-slate-50 text-sm text-slate-600">
                 <tr>
+                  <th className="px-6 py-4">#</th>
                   <th className="px-6 py-4">Product</th>
                   <th className="px-6 py-4">Category</th>
                   <th className="px-6 py-4">Price</th>
@@ -366,11 +418,14 @@ export default function ProductsPage() {
               <tbody>
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-slate-500">No products found.</td>
+                    <td colSpan={7} className="px-6 py-8 text-slate-500">No products found.</td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => (
+                  dashboardVisibleProducts.map((product, index) => (
                     <tr key={product.id} className="border-t border-slate-200">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-500">
+                        {index + 1}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
@@ -438,7 +493,25 @@ export default function ProductsPage() {
             </table>
           </div>
         )}
+
+        {filteredProducts.length > productsPerPage ? (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAllProducts((current) => !current)}
+              className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              {showAllProducts ? "Show less" : `Show all products (${filteredProducts.length})`}
+            </button>
+            {!showAllProducts ? (
+              <p className="text-xs text-slate-500">
+                Showing {dashboardVisibleProducts.length} of {filteredProducts.length} products
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+      )}
 
       {showForm && (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">

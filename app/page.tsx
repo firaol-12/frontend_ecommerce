@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "./lib/api";
 import HeroSlider from "./components/hero-slider";
 import WishlistButton from "./components/wishlist-button";
+import ErrorState from "./components/error-state";
 import { useAddToCart } from "./lib/useCart";
 import accessoryIcon from "./assets/category/accessory.png";
 import bagIcon from "./assets/category/bag.png";
@@ -54,10 +55,14 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const addToCart = useAddToCart();
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
+      setLoadError(null);
       try {
         const [categoriesData, productsData] = await Promise.all([
           apiFetch<{ categories: Category[] }>("/categories"),
@@ -68,13 +73,30 @@ export default function HomePage() {
         setProducts(productsData.products || []);
       } catch (error) {
         console.error("Failed to load homepage data", error);
+        setLoadError(error instanceof Error ? error.message : "Failed to load homepage data");
       } finally {
         setLoading(false);
       }
     }
 
     loadData();
-  }, []);
+  }, [retryToken]);
+
+  if (loadError) {
+    return (
+      <main className="bg-white text-slate-900">
+        <ErrorState
+          code="Something went wrong"
+          title="We couldn't load the store"
+          description="The homepage failed to load its data. Please check your connection and try again."
+          details={loadError}
+          primaryAction={{ label: "Try again", onClick: () => setRetryToken((token) => token + 1) }}
+          secondaryAction={{ label: "Browse products", href: "/products" }}
+          variant="danger"
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="bg-white text-slate-900">
@@ -127,7 +149,7 @@ export default function HomePage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
-              <article key={product.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+              <article key={product.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
                 <div className="relative">
                   <Link href={`/product?slug=${encodeURIComponent(product.slug)}`}>
                     <img
@@ -140,13 +162,21 @@ export default function HomePage() {
                     <WishlistButton productId={product.id} />
                   </div>
                 </div>
-                <div className="p-5">
+                <div className="flex flex-1 flex-col p-5">
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{product.category_name || "General"}</p>
                   <Link href={`/product?slug=${encodeURIComponent(product.slug)}`} className="mt-2 block text-xl font-semibold text-slate-900 hover:text-sky-700">
                     {product.name}
                   </Link>
-                  <p className="mt-2 text-sm text-slate-600 line-clamp-2">{product.description}</p>
-                  <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className="relative mt-2">
+                    <p className="line-clamp-3 text-sm text-slate-600">{product.description}</p>
+                    {(product.description || "").length > 140 ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                     <span className="text-2xl font-bold text-slate-900">${Number(product.price).toFixed(2)}</span>
                     <button
                       type="button"

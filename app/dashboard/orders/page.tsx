@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
+import ErrorState from "../../components/error-state";
 
 type Order = {
   id: number;
@@ -27,6 +28,8 @@ const orderStatuses = [
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -38,8 +41,12 @@ export default function OrdersPage() {
         const data = await apiFetch<{ orders: Order[] }>("/orders");
         if (!mounted) return;
         setOrders(data.orders || []);
+        setLoadError(null);
       } catch (error) {
         console.error("Failed to load orders", error);
+        if (mounted) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load orders");
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -52,7 +59,27 @@ export default function OrdersPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [retryToken]);
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-violet-600">Sales</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Orders</h1>
+        </div>
+        <ErrorState
+          code="Something went wrong"
+          title="We couldn't load the orders"
+          description="The orders list failed to load. Please check your connection and try again."
+          details={loadError}
+          primaryAction={{ label: "Try again", onClick: () => setRetryToken((token) => token + 1) }}
+          secondaryAction={{ label: "Back to home", href: "/" }}
+          variant="danger"
+        />
+      </div>
+    );
+  }
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
+import ErrorState from "../../components/error-state";
 
 type Customer = {
   id: number;
@@ -19,6 +20,8 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -28,8 +31,12 @@ export default function CustomersPage() {
         const data = await apiFetch<{ users: Customer[] }>("/users");
         if (!mounted) return;
         setCustomers(data.users || []);
+        setLoadError(null);
       } catch (error) {
         console.error("Failed to load customers", error);
+        if (mounted) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load customers");
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -42,7 +49,27 @@ export default function CustomersPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [retryToken]);
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-600">Accounts</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Customers</h1>
+        </div>
+        <ErrorState
+          code="Something went wrong"
+          title="We couldn't load the customers"
+          description="The customer list failed to load. Please check your connection and try again."
+          details={loadError}
+          primaryAction={{ label: "Try again", onClick: () => setRetryToken((token) => token + 1) }}
+          secondaryAction={{ label: "Back to home", href: "/" }}
+          variant="danger"
+        />
+      </div>
+    );
+  }
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
