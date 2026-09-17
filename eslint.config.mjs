@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Node CommonJS tooling scripts (migration/smoke checks) — not app code,
+    // and they intentionally use require().
+    "scripts/**",
   ]),
 ]);
 

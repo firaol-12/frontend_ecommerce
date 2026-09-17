@@ -118,7 +118,7 @@ export default function HomePage() {
               <Link
                 key={category.id}
                 href={`/products?categoryId=${category.id}`}
-                className="flex h-20 w-45 items-center justify-around gap-2 rounded-2xl bg-white px-3 shadow-xl transition hover:shadow-2xl"
+                className="flex h-20 w-[calc(50%_-_0.5rem)] items-center justify-around gap-2 rounded-2xl bg-white px-3 shadow-xl transition hover:shadow-2xl md:w-45"
               >
                 <Image
                   src={categoryIcons[category.slug] || fallbackCategoryIcon}

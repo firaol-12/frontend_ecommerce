@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../components/auth-provider";
 import type { AuthUser } from "../../lib/auth";
+import { API_BASE_URL } from "../../lib/api";
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -28,8 +29,8 @@ function AuthCallbackContent() {
     // Store token and fetch user
     localStorage.setItem("token", token);
 
-    // Fetch user profile
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/auth/me`, {
+    // Fetch user profile (same-origin: the API now lives in this app)
+    fetch(`${API_BASE_URL}/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

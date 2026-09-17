@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiFetch } from "../lib/api";
+import { apiFetch, API_BASE_URL } from "../lib/api";
 import { useAuth } from "../components/auth-provider";
 import type { AuthUser } from "../lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function RegisterPage() {
   const router = useRouter();

@@ -51,3 +51,10 @@ button{
   font-optical-sizing: auto;
   font-style: normal;
 }
+
+/* Preserve the left-side image content on mobile; larger screens are unchanged. */
+@media (max-width: 768px) {
+  .hero-slide-image {
+    object-position: 75% center;
+  }
+}

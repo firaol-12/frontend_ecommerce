@@ -81,7 +81,7 @@ export default function HeroSlider() {
 
   return (
     <section
-      className="h-99/100 px-10 rounded-2xl mx-20  relative flex justify-between items-center overflow-hidden bg-slate-900 text-white"
+      className="h-[80vh] md:h-99/100 md:px-10 rounded-2xl mx-2 md:mx-20  relative flex flex-col md:flex-row justify-center md:justify-between items-center md:items-center overflow-hidden bg-slate-900 text-white"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -98,14 +98,14 @@ export default function HeroSlider() {
             alt={slide.heading}
             fill
             priority={index === 0}
-            className="object-cover"
+            className="object-cover hero-slide-image"
           />
           <div className="absolute inset-0 bg-black/35" />
         </div>
       ))}
 
       {/* Left-side text that changes with the slide */}
-      <div className="relative z-10 max-w-7xl px-6 py-24">
+      <div className="relative z-10 max-w-7xl px-6 py-24 flex">
         <div className="max-w-xl">
           <p
             key={`badge-${current}`}
@@ -143,7 +143,7 @@ export default function HeroSlider() {
       </div>
 
       {/* Prev / next arrows (right side) */}
-      <div className="absolute right-18 w-70 flex justify-between items-center bottom-6 z-20 flex gap-3">
+      <div className="absolute right-8  md:right-18 w-70 flex justify-between items-center bottom-6 z-20 flex gap-3">
         <button
           type="button"
           onClick={prev}
@@ -163,7 +163,7 @@ export default function HeroSlider() {
       </div>
 
       {/* Dot indicators */}
-      <div className="absolute right-37 bottom-9 z-20 flex gap-2">
+      <div className="absolute right-27 bottom-9 md:right-37 md:bottom-9 z-20 flex gap-2">
         {slides.map((_, index) => (
           <button
             key={index}
