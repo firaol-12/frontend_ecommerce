@@ -162,6 +162,8 @@ export default function HeroSlider() {
         </button>
       </div>
 
+      
+
       {/* Dot indicators */}
       <div className="absolute right-27 bottom-9 md:right-37 md:bottom-9 z-20 flex gap-2">
         {slides.map((_, index) => (
