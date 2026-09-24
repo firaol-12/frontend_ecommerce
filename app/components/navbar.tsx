@@ -352,7 +352,7 @@ export default function Navbar({
       >
         {/* Brand */}
         <Link href={logoHref} className="text-2xl font-black tracking-tight text-slate-900">
-          {logo ?? "MyShop"}
+          {logo ?? "Yayo"}
         </Link>
 
         {/* Desktop links */}
