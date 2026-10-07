@@ -1,6 +1,7 @@
 "use client";
-
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import img from "../assets/download app.png"
 
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
@@ -67,7 +68,7 @@ export default function PwaRegister() {
             setInstallEvent(null);
           }}
         >
-          Install app
+          <Image src={img} alt="" />
         </button>
       )}
       {offline && (
