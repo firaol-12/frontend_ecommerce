@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import img from "../assets/download app.png"
+import img from "../assets/download icon.png"
 
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
@@ -61,14 +61,14 @@ export default function PwaRegister() {
     <>
       {installEvent && (
         <button
-          className="fixed bottom-4 right-4 z-[9999] rounded-lg bg-blue-600 px-5 py-3 text-white shadow-lg"
+          className="fixed bottom-4 right-4 z-[9999] flex justify-center items-center shadow-2xl bg-black w-10 h-10 rounded-full text-white"
           onClick={async () => {
             await installEvent.prompt();
             await installEvent.userChoice;
             setInstallEvent(null);
           }}
         >
-          <Image src={img} alt="" />
+          <Image className="w-6 h-6" src={img} alt="" />
         </button>
       )}
       {offline && (
