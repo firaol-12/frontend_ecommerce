@@ -22,6 +22,7 @@ export default function Footer() {
           <Link href="/contact" className="text-gray-400">
             Contact
           </Link>
+          
         </div>
       </div>
 
